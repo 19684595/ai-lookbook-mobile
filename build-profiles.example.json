@@ -1,0 +1,18 @@
+{
+  "default": {
+    "apiUrl": "https://sua-api-publica.onrender.com",
+    "buildId": "prod",
+    "applicationId": "com.alessandro.ailookbook.prod",
+    "displayName": "AI Lookbook",
+    "versionName": "1.0.0",
+    "versionCode": 26052501
+  },
+  "cliente-a": {
+    "apiUrl": "https://cliente-a-api.onrender.com",
+    "buildId": "cliente-a",
+    "applicationId": "com.alessandro.ailookbook.clientea",
+    "displayName": "LookBook Cliente A",
+    "versionName": "1.0.0",
+    "versionCode": 26052502
+  }
+}

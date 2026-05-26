@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: ai-lookbook-backend
+    runtime: docker
+    rootDir: backend
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATA_DIR
+        value: /app/data
+    disk:
+      name: lookbook-data
+      mountPath: /app/data
+      sizeGB: 1

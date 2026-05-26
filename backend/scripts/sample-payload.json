@@ -1,0 +1,51 @@
+{
+  "sessionId": "smoke-session-1",
+  "userId": "smoke-user-1",
+  "modelImage": {
+    "fileName": "model.png",
+    "mimeType": "image/png",
+    "width": 1,
+    "height": 1,
+    "base64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9WlH0i0AAAAASUVORK5CYII="
+  },
+  "garments": [
+    {
+      "id": "garment-top-1",
+      "label": "Blazer caramelo",
+      "category": "top",
+      "image": {
+        "fileName": "top.png",
+        "mimeType": "image/png",
+        "width": 1,
+        "height": 1,
+        "base64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9WlH0i0AAAAASUVORK5CYII="
+      }
+    },
+    {
+      "id": "garment-bottom-1",
+      "label": "Calca off-white",
+      "category": "bottom",
+      "image": {
+        "fileName": "bottom.png",
+        "mimeType": "image/png",
+        "width": 1,
+        "height": 1,
+        "base64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9WlH0i0AAAAASUVORK5CYII="
+      }
+    },
+    {
+      "id": "garment-shoes-1",
+      "label": "Tenis branco",
+      "category": "shoes",
+      "image": {
+        "fileName": "shoes.png",
+        "mimeType": "image/png",
+        "width": 1,
+        "height": 1,
+        "base64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9WlH0i0AAAAASUVORK5CYII="
+      }
+    }
+  ],
+  "styleBrief": "casual elegante para um passeio de fim de tarde",
+  "maxLooks": 2
+}

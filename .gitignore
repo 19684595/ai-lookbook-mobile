@@ -1,0 +1,25 @@
+node_modules/
+.expo/
+dist/
+build/
+
+android/.gradle/
+android/build/
+android/app/build/
+
+backend/node_modules/
+backend/dist/
+backend/run/
+backend/data/
+backend/.env
+
+build-profiles.json
+
+*.log
+*.tmp
+*.apk
+*.aab
+ChatGPT Image *.png
+
+.DS_Store
+Thumbs.db
