@@ -23,6 +23,7 @@ export type RemoteLookGenerationInput = {
   garments: RemoteGarmentPiece[];
   styleBrief: string;
   maxLooks: number;
+  renderImage?: boolean;
 };
 
 function toRemoteImage(image: ImageAsset): RemoteImageAsset {
@@ -49,5 +50,6 @@ export function toRemotePayload(input: LookGenerationInput): RemoteLookGeneratio
     })),
     styleBrief: input.styleBrief,
     maxLooks: input.maxLooks,
+    renderImage: input.renderImage,
   };
 }

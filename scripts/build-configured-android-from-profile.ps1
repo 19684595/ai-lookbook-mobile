@@ -1,11 +1,11 @@
-$ErrorActionPreference = "Stop"
-
 param(
   [Parameter(Mandatory = $true)]
   [string]$Profile,
 
   [string]$ProfilesFile = "build-profiles.json"
 )
+
+$ErrorActionPreference = "Stop"
 
 $workspaceRoot = Split-Path -Parent $PSScriptRoot
 $profilesPath = Join-Path $workspaceRoot $ProfilesFile

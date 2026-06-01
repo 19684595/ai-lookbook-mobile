@@ -1,4 +1,5 @@
 import * as FileSystem from "expo-file-system";
+import Constants from "expo-constants";
 import { AppCatalog, AppSettings, CreditState, ImageAsset, SavedLook, StoredGarment, StoredModel } from "../types";
 
 const ROOT_DIR = `${FileSystem.documentDirectory ?? ""}lookbook/`;
@@ -19,13 +20,22 @@ const defaultCredits: CreditState = {
   ],
 };
 
+const embeddedExtra = (Constants.expoConfig?.extra ?? {}) as {
+  stylingApiUrl?: string;
+  buildVariant?: string;
+};
+
+const embeddedStylingApiUrl = embeddedExtra.stylingApiUrl ?? process.env.EXPO_PUBLIC_STYLING_API_URL ?? "";
+
 const defaultCatalog: AppCatalog = {
   models: [],
   garments: [],
   savedLooks: [],
   credits: defaultCredits,
   settings: {
-    stylingApiUrl: process.env.EXPO_PUBLIC_STYLING_API_URL ?? "",
+    stylingApiUrl: embeddedStylingApiUrl,
+    embeddedApiUrl: embeddedStylingApiUrl,
+    buildVariant: embeddedExtra.buildVariant ?? "",
   },
 };
 
@@ -80,7 +90,10 @@ async function readCatalog(): Promise<AppCatalog> {
     savedLooks: parsed.savedLooks ?? [],
     credits: parsed.credits ?? defaultCredits,
     settings: {
-      stylingApiUrl: parsed.settings?.stylingApiUrl ?? defaultCatalog.settings.stylingApiUrl,
+      stylingApiUrl:
+        parsed.settings?.stylingApiUrl?.trim() || parsed.settings?.embeddedApiUrl?.trim() || defaultCatalog.settings.stylingApiUrl,
+      embeddedApiUrl: parsed.settings?.embeddedApiUrl?.trim() || defaultCatalog.settings.embeddedApiUrl,
+      buildVariant: parsed.settings?.buildVariant ?? defaultCatalog.settings.buildVariant,
     },
   };
 }

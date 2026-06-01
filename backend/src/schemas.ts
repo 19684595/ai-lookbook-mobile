@@ -25,6 +25,7 @@ export const lookGenerationRequestSchema = z.object({
   garments: z.array(remoteGarmentPieceSchema).min(1),
   styleBrief: z.string().default(""),
   maxLooks: z.number().int().min(1).max(8),
+  renderImage: z.boolean().default(true),
 });
 
 export const userProfileSchema = z.object({

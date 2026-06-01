@@ -1,5 +1,3 @@
-$ErrorActionPreference = "Stop"
-
 param(
   [Parameter(Mandatory = $true)]
   [string]$ApiUrl,
@@ -10,6 +8,8 @@ param(
   [string]$VersionName = "1.0.0",
   [int]$VersionCode = 0
 )
+
+$ErrorActionPreference = "Stop"
 
 $workspaceRoot = Split-Path -Parent $PSScriptRoot
 $androidDir = Join-Path $workspaceRoot "android"
@@ -28,7 +28,7 @@ if (!$DisplayName) {
 }
 
 if ($VersionCode -le 0) {
-  $VersionCode = [int](Get-Date -Format "yyMMddHHmm")
+  $VersionCode = [int](Get-Date -Format "yyMMddHH")
 }
 
 $env:EXPO_PUBLIC_STYLING_API_URL = $ApiUrl.TrimEnd("/")

@@ -158,6 +158,22 @@ function extractPreviewUrl(task: Awaited<ReturnType<typeof getPiApiTask>>) {
   );
 }
 
+function stripImagePayloads(look: LookResult): LookResult {
+  return {
+    ...look,
+    pieces: look.pieces.map((piece) => ({
+      ...piece,
+      image: {
+        fileName: piece.image.fileName,
+        mimeType: piece.image.mimeType,
+        width: piece.image.width,
+        height: piece.image.height,
+        sourceUrl: piece.image.sourceUrl,
+      },
+    })),
+  };
+}
+
 async function waitForPiApiImage(
   apiKey: string,
   taskId: string,
@@ -195,6 +211,17 @@ export async function generatePiApiLooks(input: LookGenerationRequest, config: P
     throw new Error("PIAPI_API_KEY nao configurada no backend.");
   }
   const apiKey = config.apiKey;
+
+  if (input.renderImage === false) {
+    const baseLooks = await generateMockLooks(input);
+    return baseLooks.map((look) =>
+      stripImagePayloads({
+        ...look,
+        previewUri: undefined,
+        summary: `${look.summary} Sugestao textual gerada sem renderizacao de imagem.`,
+      }),
+    );
+  }
 
   const storage = createTemporaryStorage(config);
   const uploadedIds: string[] = [];
@@ -252,10 +279,9 @@ export async function generatePiApiLooks(input: LookGenerationRequest, config: P
 
         const tryOnInput = selectTryOnInputs(modelReference.url!, resolvedLookPieces);
         if (!tryOnInput) {
-          return {
-            ...look,
-            summary: `${look.summary} Nenhuma combinacao compativel com upper/lower ou dress foi encontrada para envio a PiAPI.`,
-          };
+          throw new Error(
+            "A renderizacao com PiAPI precisa de ao menos uma peca cadastrada como Blusa, Calca ou Vestido.",
+          );
         }
 
         const createdTask = await createPiApiTask(apiKey, {
@@ -277,11 +303,11 @@ export async function generatePiApiLooks(input: LookGenerationRequest, config: P
 
         const previewUri = await waitForPiApiImage(apiKey, taskId, pollConfig);
 
-        return {
+        return stripImagePayloads({
           ...look,
           previewUri,
           summary: `${look.summary} Preview gerado pela PiAPI/Kling Virtual Try-On.`,
-        };
+        });
       }),
     );
   } finally {

@@ -63,6 +63,8 @@ export type CreditState = {
 
 export type AppSettings = {
   stylingApiUrl: string;
+  embeddedApiUrl?: string;
+  buildVariant?: string;
 };
 
 export type AppCatalog = {
@@ -80,6 +82,7 @@ export type LookGenerationInput = {
   garments: GarmentPiece[];
   styleBrief: string;
   maxLooks: number;
+  renderImage?: boolean;
 };
 
 export type LookResult = {

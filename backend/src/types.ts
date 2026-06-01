@@ -23,6 +23,7 @@ export type LookGenerationRequest = {
   garments: RemoteGarmentPiece[];
   styleBrief: string;
   maxLooks: number;
+  renderImage?: boolean;
 };
 
 export type LookResult = {

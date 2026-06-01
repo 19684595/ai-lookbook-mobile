@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  BackHandler,
   Image,
   Pressable,
   SafeAreaView,
@@ -15,6 +16,7 @@ import {
 } from "react-native";
 import { StatusBar as ExpoStatusBar } from "expo-status-bar";
 import * as FileSystem from "expo-file-system";
+import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 import { checkStylingBackend, createStylingService } from "./src/services/stylingService";
 import { localCatalogService } from "./src/services/localCatalogService";
@@ -57,6 +59,10 @@ const categoryLabels: Record<GarmentCategory, string> = {
   accessory: "Acessório",
 };
 
+const renderableCategories = new Set<GarmentCategory>(["top", "bottom", "dress"]);
+const MAX_IMAGE_DIMENSION = 1600;
+const IMAGE_COMPRESSION = 0.82;
+
 function makeId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -76,24 +82,49 @@ async function requestCameraPermission() {
 }
 
 async function normalizeAsset(asset: ImagePicker.ImagePickerAsset): Promise<ImageAsset> {
-  let base64: string | undefined;
-
   try {
-    base64 = await FileSystem.readAsStringAsync(asset.uri, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
-  } catch {
-    base64 = undefined;
-  }
+    const width = asset.width ?? 0;
+    const height = asset.height ?? 0;
+    const actions: ImageManipulator.Action[] = [];
+    const largestDimension = Math.max(width, height);
 
-  return {
-    uri: asset.uri,
-    width: asset.width ?? 0,
-    height: asset.height ?? 0,
-    fileName: asset.fileName ?? undefined,
-    mimeType: asset.mimeType ?? undefined,
-    base64,
-  };
+    if (largestDimension > MAX_IMAGE_DIMENSION) {
+      actions.push(width >= height ? { resize: { width: MAX_IMAGE_DIMENSION } } : { resize: { height: MAX_IMAGE_DIMENSION } });
+    }
+
+    const image = await ImageManipulator.manipulateAsync(asset.uri, actions, {
+      compress: IMAGE_COMPRESSION,
+      format: ImageManipulator.SaveFormat.JPEG,
+      base64: true,
+    });
+
+    return {
+      uri: image.uri,
+      width: image.width,
+      height: image.height,
+      fileName: asset.fileName?.replace(/\.[^.]+$/, ".jpg") ?? `image-${Date.now()}.jpg`,
+      mimeType: "image/jpeg",
+      base64: image.base64,
+    };
+  } catch {
+    let base64: string | undefined;
+    try {
+      base64 = await FileSystem.readAsStringAsync(asset.uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+    } catch {
+      base64 = undefined;
+    }
+
+    return {
+      uri: asset.uri,
+      width: asset.width ?? 0,
+      height: asset.height ?? 0,
+      fileName: asset.fileName ?? undefined,
+      mimeType: asset.mimeType ?? undefined,
+      base64,
+    };
+  }
 }
 
 async function normalizeAssets(assets: ImagePicker.ImagePickerAsset[]) {
@@ -106,6 +137,14 @@ function buildVirtualPieces(model: StoredModel, prompt: string): GarmentPiece[] 
     { id: makeId("virtual"), label: `Peça sugerida 2`, category: "bottom", image: model.image },
     { id: makeId("virtual"), label: prompt.includes("sapato") ? "Sapato sugerido" : "Acessório sugerido", category: prompt.includes("sapato") ? "shoes" : "accessory", image: model.image },
   ];
+}
+
+function isRenderableGarment(piece: GarmentPiece) {
+  return renderableCategories.has(piece.category);
+}
+
+function hasRenderableGarment(pieces: GarmentPiece[]) {
+  return pieces.some(isRenderableGarment);
 }
 
 function buildSavedLook(params: {
@@ -165,6 +204,23 @@ function MenuButton({ title, caption, onPress }: { title: string; caption: strin
   );
 }
 
+function getPreviousScreen(screen: Screen): Screen | null {
+  switch (screen) {
+    case "models":
+    case "wardrobe":
+    case "generator":
+    case "history":
+    case "credits":
+      return "home";
+    case "manual-looks":
+    case "suggested-looks":
+      return "generator";
+    case "home":
+    default:
+      return null;
+  }
+}
+
 export default function App() {
   const [screen, setScreen] = useState<Screen>("home");
   const [catalog, setCatalog] = useState<AppCatalog | null>(null);
@@ -190,8 +246,22 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    setApiUrlDraft(catalog?.settings.stylingApiUrl ?? "");
-  }, [catalog?.settings.stylingApiUrl]);
+    setApiUrlDraft(catalog?.settings.stylingApiUrl || catalog?.settings.embeddedApiUrl || "");
+  }, [catalog?.settings.embeddedApiUrl, catalog?.settings.stylingApiUrl]);
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      const previousScreen = getPreviousScreen(screen);
+      if (!previousScreen) {
+        return false;
+      }
+
+      setScreen(previousScreen);
+      return true;
+    });
+
+    return () => subscription.remove();
+  }, [screen]);
 
   async function loadCatalog() {
     const nextCatalog = await localCatalogService.loadCatalog();
@@ -202,11 +272,11 @@ export default function App() {
   const garments = catalog?.garments ?? [];
   const savedLooks = catalog?.savedLooks ?? [];
   const credits = catalog?.credits;
-  const stylingService = useMemo(
-    () => createStylingService({ baseUrl: catalog?.settings.stylingApiUrl }),
-    [catalog?.settings.stylingApiUrl],
-  );
-  const isRemoteAiEnabled = Boolean((catalog?.settings.stylingApiUrl ?? "").trim());
+  const embeddedApiUrl = catalog?.settings.embeddedApiUrl ?? "";
+  const buildVariant = catalog?.settings.buildVariant ?? "";
+  const effectiveApiUrl = (catalog?.settings.stylingApiUrl || catalog?.settings.embeddedApiUrl || "").trim();
+  const stylingService = useMemo(() => createStylingService({ baseUrl: effectiveApiUrl }), [effectiveApiUrl]);
+  const isRemoteAiEnabled = Boolean(effectiveApiUrl);
 
   const selectedManualModel = useMemo(
     () => models.find((item) => item.id === selectedManualModelId) ?? null,
@@ -227,7 +297,7 @@ export default function App() {
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 1,
+      quality: IMAGE_COMPRESSION,
       allowsEditing: false,
       allowsMultipleSelection: multiple,
       selectionLimit: multiple ? 0 : 1,
@@ -249,7 +319,7 @@ export default function App() {
 
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 1,
+      quality: IMAGE_COMPRESSION,
       cameraType: ImagePicker.CameraType.back,
       allowsEditing: false,
     });
@@ -360,7 +430,7 @@ export default function App() {
 
   async function saveApiUrl() {
     const nextSettings = await localCatalogService.updateSettings({
-      stylingApiUrl: apiUrlDraft.trim(),
+      stylingApiUrl: apiUrlDraft.trim() || catalog?.settings.embeddedApiUrl || "",
     });
     setCatalog((current) => (current ? { ...current, settings: nextSettings } : current));
     Alert.alert(
@@ -404,6 +474,14 @@ export default function App() {
       return;
     }
 
+    if (!hasRenderableGarment(selectedManualGarments)) {
+      Alert.alert(
+        "Pe\u00e7a incompat\u00edvel com renderiza\u00e7\u00e3o",
+        "Para gerar imagem com a IA atual, selecione ao menos uma pe\u00e7a marcada como Blusa, Cal\u00e7a ou Vestido.",
+      );
+      return;
+    }
+
     try {
       setIsBusy(true);
       const input: LookGenerationInput = {
@@ -411,8 +489,12 @@ export default function App() {
         garments: selectedManualGarments,
         styleBrief: "Look manual montado pelo usuário",
         maxLooks: 1,
+        renderImage: true,
       };
       const [result] = await stylingService.generateLooks(input);
+      if (!result.previewUri) {
+        throw new Error("A IA retornou a sugest\u00e3o, mas n\u00e3o devolveu uma imagem renderizada.");
+      }
       setManualPreview({
         ...result,
         title: "Look manual renderizado",
@@ -461,8 +543,29 @@ export default function App() {
       return;
     }
 
+    if (renderSuggestedImage && !useSavedPieces) {
+      Alert.alert(
+        "Renderiza\u00e7\u00e3o exige pe\u00e7as salvas",
+        "A PiAPI atual renderiza a modelo vestindo fotos reais de pe\u00e7as. Para prompt livre, gere primeiro a sugest\u00e3o em texto.",
+      );
+      return;
+    }
+
+    const renderableSavedGarments = garments.filter(isRenderableGarment);
+    if (renderSuggestedImage && useSavedPieces && renderableSavedGarments.length === 0) {
+      Alert.alert(
+        "Nenhuma pe\u00e7a compat\u00edvel",
+        "Cadastre ou marque ao menos uma pe\u00e7a como Blusa, Cal\u00e7a ou Vestido para gerar imagem.",
+      );
+      return;
+    }
+
     const creditCost = describeCreditCost(renderSuggestedImage);
-    const sourcePieces = useSavedPieces ? garments : buildVirtualPieces(selectedSuggestedModel, prompt);
+    const sourcePieces = useSavedPieces
+      ? renderSuggestedImage
+        ? renderableSavedGarments
+        : garments
+      : buildVirtualPieces(selectedSuggestedModel, prompt);
     const selectedPieces = sourcePieces.slice(0, Math.min(sourcePieces.length, 4));
     const styleBrief = renderSuggestedImage
       ? `${prompt}. Ambiente desejado: ${selectedEnvironment}. Gere uma composição visual coerente e pronta para renderização.`
@@ -476,7 +579,12 @@ export default function App() {
         garments: selectedPieces,
         styleBrief,
         maxLooks: 1,
+        renderImage: renderSuggestedImage,
       });
+
+      if (renderSuggestedImage && !result.previewUri) {
+        throw new Error("A IA retornou a sugest\u00e3o, mas n\u00e3o devolveu uma imagem renderizada.");
+      }
 
       setSuggestedPreview({
         ...result,
@@ -557,6 +665,8 @@ export default function App() {
                   ? "Modo atual: backend remoto configurado. As geracoes tentam usar a PiAPI pelo seu servidor."
                   : "Modo atual: demonstracao local. Configure a URL do backend para gerar looks reais."}
               </Text>
+              {buildVariant ? <Text style={styles.rowCaption}>Build instalada: {buildVariant}</Text> : null}
+              {embeddedApiUrl ? <Text style={styles.rowCaption}>API embutida: {embeddedApiUrl}</Text> : null}
               <TextInput
                 value={apiUrlDraft}
                 onChangeText={setApiUrlDraft}
