@@ -9,6 +9,22 @@ type OpenAIProviderConfig = {
   renderImages?: boolean;
 };
 
+type OpenAIContentPart = {
+  type?: string;
+  text?: string;
+  json?: unknown;
+};
+
+type OpenAIResponsePayload = {
+  output_text?: string;
+  status?: string;
+  output?: Array<{
+    type?: string;
+    status?: string;
+    content?: OpenAIContentPart[];
+  }>;
+};
+
 function buildPrompt(input: LookGenerationRequest) {
   const garments = input.garments.map((piece) => `${piece.id}: ${piece.label} (${piece.category})`).join(", ");
   return [
@@ -17,6 +33,59 @@ function buildPrompt(input: LookGenerationRequest) {
     `Target style: ${input.styleBrief || "balanced, realistic, wearable fashion"}.`,
     "Return concise rationale for each look, a short fashion trend comment related to the selected pieces, and a production-ready try-on prompt for image generation.",
   ].join(" ");
+}
+
+function stringifyJsonContent(value: unknown) {
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (value && typeof value === "object") {
+    return JSON.stringify(value);
+  }
+
+  return undefined;
+}
+
+export function extractOpenAIOutputText(data: OpenAIResponsePayload) {
+  if (data.output_text?.trim()) {
+    return data.output_text;
+  }
+
+  const contentParts = data.output?.flatMap((item) => item.content || []) || [];
+  const explicitOutputText = contentParts.find((part) => part.type === "output_text" && part.text?.trim())?.text;
+
+  if (explicitOutputText) {
+    return explicitOutputText;
+  }
+
+  const firstJson = contentParts.map((part) => stringifyJsonContent(part.json)).find(Boolean);
+  if (firstJson) {
+    return firstJson;
+  }
+
+  return contentParts.find((part) => part.text?.trim())?.text;
+}
+
+function parseOpenAILookSuggestions(data: OpenAIResponsePayload) {
+  const outputText = extractOpenAIOutputText(data);
+
+  if (!outputText) {
+    const outputSummary = data.output
+      ?.map((item) => `${item.type || "sem_tipo"}:${item.status || "sem_status"}`)
+      .join(", ");
+    throw new Error(
+      `A OpenAI respondeu sem texto utilizável. Status: ${data.status || "desconhecido"}. Saída: ${outputSummary || "vazia"}.`,
+    );
+  }
+
+  try {
+    return JSON.parse(outputText) as {
+      looks: LookSuggestion[];
+    };
+  } catch {
+    throw new Error("A OpenAI respondeu, mas o texto não veio em JSON válido.");
+  }
 }
 
 export async function generateOpenAILooks(input: LookGenerationRequest, config: OpenAIProviderConfig): Promise<LookResult[]> {
@@ -77,17 +146,9 @@ export async function generateOpenAILooks(input: LookGenerationRequest, config: 
         },
       },
     },
-  })) as {
-    output_text?: string;
-  };
+  })) as OpenAIResponsePayload;
 
-  if (!data.output_text) {
-    throw new Error("Resposta da OpenAI veio sem output_text.");
-  }
-
-  const parsed = JSON.parse(data.output_text) as {
-    looks: LookSuggestion[];
-  };
+  const parsed = parseOpenAILookSuggestions(data);
 
   const baseLooks: LookResult[] = parsed.looks.map((look, index) => ({
     id: `look-${index + 1}`,
