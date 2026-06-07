@@ -163,6 +163,7 @@ function buildSavedLook(params: {
     modelId: params.model?.id,
     modelName: params.model?.name ?? "Modelo",
     summary: params.result.summary,
+    trendComment: params.result.trendComment,
     prompt: params.result.prompt,
     previewUri: params.result.previewUri,
     renderedImage: params.renderedImage,
@@ -226,17 +227,19 @@ export default function App() {
   const [catalog, setCatalog] = useState<AppCatalog | null>(null);
   const [isBusy, setIsBusy] = useState(false);
   const [apiUrlDraft, setApiUrlDraft] = useState("");
+  const [openAIKeyDraft, setOpenAIKeyDraft] = useState("");
+  const [isAiSettingsExpanded, setIsAiSettingsExpanded] = useState(false);
 
   const [selectedManualModelId, setSelectedManualModelId] = useState<string | null>(null);
   const [selectedManualGarmentIds, setSelectedManualGarmentIds] = useState<string[]>([]);
   const [manualPreview, setManualPreview] = useState<LookResult | null>(null);
   const [manualLookName, setManualLookName] = useState("");
 
-  const [selectedSuggestedPrompt, setSelectedSuggestedPrompt] = useState(promptSuggestions[0]);
+  const [selectedSuggestedPrompt, setSelectedSuggestedPrompt] = useState("");
   const [customSuggestedPrompt, setCustomSuggestedPrompt] = useState("");
   const [selectedSuggestedModelId, setSelectedSuggestedModelId] = useState<string | null>(null);
   const [useSavedPieces, setUseSavedPieces] = useState(true);
-  const [renderSuggestedImage, setRenderSuggestedImage] = useState(true);
+  const [renderSuggestedImage, setRenderSuggestedImage] = useState(false);
   const [selectedEnvironment, setSelectedEnvironment] = useState<SuggestedEnvironment>("Passarela");
   const [suggestedPreview, setSuggestedPreview] = useState<LookResult | null>(null);
   const [suggestedLookName, setSuggestedLookName] = useState("");
@@ -247,7 +250,8 @@ export default function App() {
 
   useEffect(() => {
     setApiUrlDraft(catalog?.settings.stylingApiUrl || catalog?.settings.embeddedApiUrl || "");
-  }, [catalog?.settings.embeddedApiUrl, catalog?.settings.stylingApiUrl]);
+    setOpenAIKeyDraft(catalog?.settings.openAIApiKey || "");
+  }, [catalog?.settings.embeddedApiUrl, catalog?.settings.openAIApiKey, catalog?.settings.stylingApiUrl]);
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
@@ -275,8 +279,27 @@ export default function App() {
   const embeddedApiUrl = catalog?.settings.embeddedApiUrl ?? "";
   const buildVariant = catalog?.settings.buildVariant ?? "";
   const effectiveApiUrl = (catalog?.settings.stylingApiUrl || catalog?.settings.embeddedApiUrl || "").trim();
-  const stylingService = useMemo(() => createStylingService({ baseUrl: effectiveApiUrl }), [effectiveApiUrl]);
+  const openAIApiKey = catalog?.settings.openAIApiKey?.trim() ?? "";
+  const stylingService = useMemo(
+    () => createStylingService({ baseUrl: effectiveApiUrl, openAIApiKey }),
+    [effectiveApiUrl, openAIApiKey],
+  );
   const isRemoteAiEnabled = Boolean(effectiveApiUrl);
+  const isOpenAIKeyConfigured = Boolean(openAIApiKey);
+
+  useEffect(() => {
+    if (models.length === 0) {
+      setSelectedManualModelId(null);
+      setSelectedSuggestedModelId(null);
+      return;
+    }
+
+    const firstModelId = models[0].id;
+    const hasModel = (id: string | null) => Boolean(id && models.some((model) => model.id === id));
+
+    setSelectedManualModelId((current) => (hasModel(current) ? current : firstModelId));
+    setSelectedSuggestedModelId((current) => (hasModel(current) ? current : firstModelId));
+  }, [models]);
 
   const selectedManualModel = useMemo(
     () => models.find((item) => item.id === selectedManualModelId) ?? null,
@@ -287,6 +310,9 @@ export default function App() {
     [models, selectedSuggestedModelId],
   );
   const selectedManualGarments = garments.filter((item) => selectedManualGarmentIds.includes(item.id));
+  const renderableSavedGarments = garments.filter(isRenderableGarment);
+  const canRenderSuggestedImage = useSavedPieces && renderableSavedGarments.length > 0;
+  const effectiveRenderSuggestedImage = renderSuggestedImage && canRenderSuggestedImage;
 
   async function chooseFromLibrary(multiple: boolean) {
     const granted = await requestMediaPermission();
@@ -428,36 +454,41 @@ export default function App() {
     setCatalog((current) => (current ? { ...current, credits: next } : current));
   }
 
-  async function saveApiUrl() {
+  async function saveAiSettings() {
     const nextSettings = await localCatalogService.updateSettings({
       stylingApiUrl: apiUrlDraft.trim() || catalog?.settings.embeddedApiUrl || "",
+      openAIApiKey: openAIKeyDraft.trim(),
     });
     setCatalog((current) => (current ? { ...current, settings: nextSettings } : current));
     Alert.alert(
-      "Conexao atualizada",
-      nextSettings.stylingApiUrl
-        ? "O app agora vai tentar usar o backend configurado para gerar looks reais."
-        : "Sem URL configurada, o app voltou para o modo de demonstracao local.",
+      "Conexão atualizada",
+      nextSettings.openAIApiKey
+        ? "O app usará sua chave OpenAI pelo backend quando gerar looks."
+        : nextSettings.stylingApiUrl
+          ? "O app agora vai tentar usar o backend configurado para gerar looks reais."
+          : "Sem URL configurada, o app voltou para o modo de demonstração local.",
     );
   }
 
   async function testApiConnection() {
     const url = apiUrlDraft.trim();
     if (!url) {
-      Alert.alert("Informe a URL", "Digite a URL do backend antes de testar a conexao.");
+      Alert.alert("Informe a URL", "Digite a URL do backend antes de testar a conexão.");
       return;
     }
 
     try {
       setIsBusy(true);
-      const health = await checkStylingBackend(url);
+      const health = await checkStylingBackend(url, {
+        openAIApiKey: openAIKeyDraft,
+      });
       Alert.alert(
         "Backend conectado",
-        `Status: ${health.status}\nProvider: ${health.provider ?? "desconhecido"}\nPiAPI: ${health.piapiConfigured ? "ok" : "nao"}\nCloudinary: ${health.cloudinaryConfigured ? "ok" : "nao"}`,
+        `Status: ${health.status}\nProvider: ${health.provider ?? "desconhecido"}\nOpenAI: ${health.openAIConfigured ? "ok" : "não"}\nPiAPI: ${health.piapiConfigured ? "ok" : "não"}\nCloudinary: ${health.cloudinaryConfigured ? "ok" : "não"}`,
       );
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Nao foi possivel testar a conexao.";
-      Alert.alert("Falha na conexao", message);
+      const message = error instanceof Error ? error.message : "Não foi possível testar a conexão.";
+      Alert.alert("Falha na conexão", message);
     } finally {
       setIsBusy(false);
     }
@@ -499,7 +530,7 @@ export default function App() {
         ...result,
         title: "Look manual renderizado",
       });
-      await consumeCredits(1, "Renderizacao de look manual");
+      await consumeCredits(1, "Renderização de look manual");
       setManualLookName(`Look manual ${savedLooks.length + 1}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Não foi possível gerar o look manual agora.";
@@ -538,36 +569,16 @@ export default function App() {
       return;
     }
 
-    if (useSavedPieces && garments.length === 0) {
-      Alert.alert("Guarda-roupa vazio", "Cadastre peças em Meu Guarda-Roupas para usar sugestões com itens salvos.");
-      return;
-    }
-
-    if (renderSuggestedImage && !useSavedPieces) {
-      Alert.alert(
-        "Renderiza\u00e7\u00e3o exige pe\u00e7as salvas",
-        "A PiAPI atual renderiza a modelo vestindo fotos reais de pe\u00e7as. Para prompt livre, gere primeiro a sugest\u00e3o em texto.",
-      );
-      return;
-    }
-
-    const renderableSavedGarments = garments.filter(isRenderableGarment);
-    if (renderSuggestedImage && useSavedPieces && renderableSavedGarments.length === 0) {
-      Alert.alert(
-        "Nenhuma pe\u00e7a compat\u00edvel",
-        "Cadastre ou marque ao menos uma pe\u00e7a como Blusa, Cal\u00e7a ou Vestido para gerar imagem.",
-      );
-      return;
-    }
-
-    const creditCost = describeCreditCost(renderSuggestedImage);
-    const sourcePieces = useSavedPieces
-      ? renderSuggestedImage
+    const shouldUseSavedPieces = useSavedPieces && garments.length > 0;
+    const shouldRenderImage = renderSuggestedImage && shouldUseSavedPieces && renderableSavedGarments.length > 0;
+    const creditCost = describeCreditCost(shouldRenderImage);
+    const sourcePieces = shouldUseSavedPieces
+      ? shouldRenderImage
         ? renderableSavedGarments
         : garments
       : buildVirtualPieces(selectedSuggestedModel, prompt);
-    const selectedPieces = sourcePieces.slice(0, Math.min(sourcePieces.length, 4));
-    const styleBrief = renderSuggestedImage
+    const selectedPieces = shouldRenderImage ? sourcePieces.slice(0, Math.min(sourcePieces.length, 4)) : sourcePieces;
+    const styleBrief = shouldRenderImage
       ? `${prompt}. Ambiente desejado: ${selectedEnvironment}. Gere uma composição visual coerente e pronta para renderização.`
       : `${prompt}. Retorne uma sugestão textual clara, sofisticada e objetiva.`;
 
@@ -579,22 +590,22 @@ export default function App() {
         garments: selectedPieces,
         styleBrief,
         maxLooks: 1,
-        renderImage: renderSuggestedImage,
+        renderImage: shouldRenderImage,
       });
 
-      if (renderSuggestedImage && !result.previewUri) {
+      if (shouldRenderImage && !result.previewUri) {
         throw new Error("A IA retornou a sugest\u00e3o, mas n\u00e3o devolveu uma imagem renderizada.");
       }
 
       setSuggestedPreview({
         ...result,
-        title: renderSuggestedImage ? "Look sugerido renderizado" : "Look sugerido em texto",
-        previewUri: renderSuggestedImage ? result.previewUri : undefined,
-        summary: useSavedPieces
+        title: shouldRenderImage ? "Look sugerido renderizado" : "Look sugerido em texto",
+        previewUri: shouldRenderImage ? result.previewUri : undefined,
+        summary: shouldUseSavedPieces
           ? result.summary
           : `Sugestão criada a partir do prompt "${prompt}" com peças livres indicadas pela IA para o perfil da modelo.`,
       });
-      await consumeCredits(creditCost, renderSuggestedImage ? "Look sugerido com renderizacao" : "Look sugerido em texto");
+      await consumeCredits(creditCost, shouldRenderImage ? "Look sugerido com renderização" : "Look sugerido em texto");
       setSuggestedLookName(`Look sugerido ${savedLooks.length + 1}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Não foi possível gerar o look sugerido.";
@@ -609,13 +620,14 @@ export default function App() {
       return;
     }
 
+    const renderedImage = Boolean(suggestedPreview.previewUri);
     const look = buildSavedLook({
       name: suggestedLookName.trim() || `Look sugerido ${savedLooks.length + 1}`,
       mode: "suggested",
       result: suggestedPreview,
       model: selectedSuggestedModel,
-      renderedImage: renderSuggestedImage,
-      environment: renderSuggestedImage ? selectedEnvironment : undefined,
+      renderedImage,
+      environment: renderedImage ? selectedEnvironment : undefined,
     });
     const next = await localCatalogService.saveLook(look);
     setCatalog((current) => (current ? { ...current, savedLooks: next } : current));
@@ -659,31 +671,56 @@ export default function App() {
             </View>
 
             <View style={styles.panel}>
-              <Text style={styles.sectionTitle}>Conexao com IA</Text>
-              <Text style={styles.rowCaption}>
-                {isRemoteAiEnabled
-                  ? "Modo atual: backend remoto configurado. As geracoes tentam usar a PiAPI pelo seu servidor."
-                  : "Modo atual: demonstracao local. Configure a URL do backend para gerar looks reais."}
-              </Text>
-              {buildVariant ? <Text style={styles.rowCaption}>Build instalada: {buildVariant}</Text> : null}
-              {embeddedApiUrl ? <Text style={styles.rowCaption}>API embutida: {embeddedApiUrl}</Text> : null}
-              <TextInput
-                value={apiUrlDraft}
-                onChangeText={setApiUrlDraft}
-                placeholder="Ex.: http://192.168.0.10:8787"
-                placeholderTextColor="#8f8579"
-                autoCapitalize="none"
-                autoCorrect={false}
-                style={styles.input}
-              />
-              <View style={styles.actionRow}>
-                <Pressable style={styles.primaryButton} onPress={saveApiUrl}>
-                  <Text style={styles.primaryButtonText}>Salvar URL da API</Text>
-                </Pressable>
-                <Pressable style={styles.secondaryActionButton} onPress={testApiConnection}>
-                  <Text style={styles.secondaryActionButtonText}>Testar conexao</Text>
-                </Pressable>
-              </View>
+              <Pressable style={styles.collapsibleHeader} onPress={() => setIsAiSettingsExpanded((current) => !current)}>
+                <View style={styles.collapsibleCopy}>
+                  <Text style={styles.sectionTitle}>Conexão com IA</Text>
+                  <Text style={styles.rowCaption}>
+                    {isOpenAIKeyConfigured
+                      ? "OpenAI configurada no app. Sugestões em texto continuam sendo o padrão econômico."
+                      : isRemoteAiEnabled
+                        ? "Backend remoto configurado. Toque para ver ou ajustar as credenciais."
+                        : "Modo demonstração local. Toque para configurar IA."}
+                  </Text>
+                </View>
+                <Text style={styles.collapseIndicator}>{isAiSettingsExpanded ? "Recolher" : "Configurar"}</Text>
+              </Pressable>
+
+              {isAiSettingsExpanded ? (
+                <>
+                  {buildVariant ? <Text style={styles.rowCaption}>Build instalada: {buildVariant}</Text> : null}
+                  {embeddedApiUrl ? <Text style={styles.rowCaption}>API embutida: {embeddedApiUrl}</Text> : null}
+                  <TextInput
+                    value={apiUrlDraft}
+                    onChangeText={setApiUrlDraft}
+                    placeholder="URL do backend. Ex.: https://ai-lookbook-mobile.onrender.com"
+                    placeholderTextColor="#8f8579"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    style={styles.input}
+                  />
+                  <TextInput
+                    value={openAIKeyDraft}
+                    onChangeText={setOpenAIKeyDraft}
+                    placeholder="Chave OpenAI opcional"
+                    placeholderTextColor="#8f8579"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    secureTextEntry
+                    style={styles.input}
+                  />
+                  <Text style={styles.rowCaption}>
+                    Para economizar, o app gera texto por padrão. A imagem só é renderizada quando você ativar a opção na tela de Looks Sugeridos.
+                  </Text>
+                  <View style={styles.actionRow}>
+                    <Pressable style={styles.primaryButton} onPress={saveAiSettings}>
+                      <Text style={styles.primaryButtonText}>Salvar conexão</Text>
+                    </Pressable>
+                    <Pressable style={styles.secondaryActionButton} onPress={testApiConnection}>
+                      <Text style={styles.secondaryActionButtonText}>Testar conexão</Text>
+                    </Pressable>
+                  </View>
+                </>
+              ) : null}
             </View>
 
             <View style={styles.menuGrid}>
@@ -824,6 +861,12 @@ export default function App() {
                 {manualPreview.previewUri ? <Image source={{ uri: manualPreview.previewUri }} style={styles.resultPreview} /> : null}
                 <Text style={styles.resultTitle}>{manualPreview.title}</Text>
                 <Text style={styles.resultSummary}>{manualPreview.summary}</Text>
+                {manualPreview.trendComment ? (
+                  <View style={styles.trendBox}>
+                    <Text style={styles.trendLabel}>Tendências de moda</Text>
+                    <Text style={styles.trendText}>{manualPreview.trendComment}</Text>
+                  </View>
+                ) : null}
                 <TextInput value={manualLookName} onChangeText={setManualLookName} placeholder="Nome para salvar este look" placeholderTextColor="#8f8579" style={styles.input} />
                 <Pressable style={styles.secondaryActionButton} onPress={saveManualLook}>
                   <Text style={styles.secondaryActionButtonText}>Salvar no histórico</Text>
@@ -835,7 +878,7 @@ export default function App() {
 
         {screen === "suggested-looks" ? (
           <>
-            <ScreenHeader title="Looks Sugeridos" subtitle="Combine prompt, modelo e contexto para receber uma proposta pronta com texto ou renderização." onBack={() => setScreen("generator")} />
+            <ScreenHeader title="Looks Sugeridos" subtitle="Gere primeiro uma sugestão em texto e renderize a imagem só quando quiser consumir mais créditos." onBack={() => setScreen("generator")} />
             <View style={styles.panel}>
               <Text style={styles.sectionTitle}>1. Escolha ou escreva o prompt</Text>
               <View style={styles.chipRow}>
@@ -843,7 +886,7 @@ export default function App() {
                   <Pressable
                     key={prompt}
                     style={[styles.chip, selectedSuggestedPrompt === prompt && styles.chipActive]}
-                    onPress={() => setSelectedSuggestedPrompt(prompt)}
+                    onPress={() => setSelectedSuggestedPrompt((current) => (current === prompt ? "" : prompt))}
                   >
                     <Text style={[styles.chipText, selectedSuggestedPrompt === prompt && styles.chipTextActive]}>{prompt}</Text>
                   </Pressable>
@@ -880,19 +923,35 @@ export default function App() {
               <View style={styles.toggleRow}>
                 <View style={styles.toggleCopy}>
                   <Text style={styles.rowTitle}>Usar peças salvas</Text>
-                  <Text style={styles.rowCaption}>A IA prioriza o que já existe no seu guarda-roupa.</Text>
+                  <Text style={styles.rowCaption}>
+                    {garments.length > 0
+                      ? "No modo texto, a IA analisa todo o acervo por nome e categoria, sem enviar fotos."
+                      : "Sem peças cadastradas, o app usa o prompt livre em modo texto."}
+                  </Text>
                 </View>
-                <Switch value={useSavedPieces} onValueChange={setUseSavedPieces} />
+                <Switch
+                  value={useSavedPieces}
+                  onValueChange={(value) => {
+                    setUseSavedPieces(value);
+                    if (!value) {
+                      setRenderSuggestedImage(false);
+                    }
+                  }}
+                />
               </View>
               <View style={styles.toggleRow}>
                 <View style={styles.toggleCopy}>
                   <Text style={styles.rowTitle}>Renderizar imagem</Text>
-                  <Text style={styles.rowCaption}>Desative se quiser apenas a descrição textual do look.</Text>
+                  <Text style={styles.rowCaption}>
+                    {canRenderSuggestedImage
+                      ? "Opcional e mais caro: use apenas quando quiser vestir a modelo com fotos reais das peças salvas."
+                      : "Para prompt livre, esta geração cria a sugestão em texto. Para imagem, cadastre Blusa, Calça ou Vestido."}
+                  </Text>
                 </View>
-                <Switch value={renderSuggestedImage} onValueChange={setRenderSuggestedImage} />
+                <Switch value={effectiveRenderSuggestedImage} disabled={!canRenderSuggestedImage} onValueChange={setRenderSuggestedImage} />
               </View>
 
-              {renderSuggestedImage ? (
+              {effectiveRenderSuggestedImage ? (
                 <>
                   <Text style={styles.label}>Ambiente da cena</Text>
                   <View style={styles.chipRow}>
@@ -905,7 +964,7 @@ export default function App() {
                 </>
               ) : null}
 
-              <Text style={styles.creditHint}>Custo desta geração: {describeCreditCost(renderSuggestedImage)} crédito(s)</Text>
+              <Text style={styles.creditHint}>Custo desta geração: {describeCreditCost(effectiveRenderSuggestedImage)} crédito(s)</Text>
             </View>
 
             <Pressable style={styles.primaryButton} onPress={generateSuggestedLook}>
@@ -917,6 +976,12 @@ export default function App() {
                 {suggestedPreview.previewUri ? <Image source={{ uri: suggestedPreview.previewUri }} style={styles.resultPreview} /> : null}
                 <Text style={styles.resultTitle}>{suggestedPreview.title}</Text>
                 <Text style={styles.resultSummary}>{suggestedPreview.summary}</Text>
+                {suggestedPreview.trendComment ? (
+                  <View style={styles.trendBox}>
+                    <Text style={styles.trendLabel}>Tendências de moda</Text>
+                    <Text style={styles.trendText}>{suggestedPreview.trendComment}</Text>
+                  </View>
+                ) : null}
                 <TextInput value={suggestedLookName} onChangeText={setSuggestedLookName} placeholder="Nome para salvar este look" placeholderTextColor="#8f8579" style={styles.input} />
                 <Pressable style={styles.secondaryActionButton} onPress={saveSuggestedLook}>
                   <Text style={styles.secondaryActionButtonText}>Salvar no histórico</Text>
@@ -936,6 +1001,12 @@ export default function App() {
                 <Text style={styles.resultTitle}>{look.name}</Text>
                 <Text style={styles.rowCaption}>{look.mode === "manual" ? "Look manual" : "Look sugerido"} • {look.modelName} • {formatDate(look.createdAt)}</Text>
                 <Text style={styles.resultSummary}>{look.summary}</Text>
+                {look.trendComment ? (
+                  <View style={styles.trendBox}>
+                    <Text style={styles.trendLabel}>Tendências de moda</Text>
+                    <Text style={styles.trendText}>{look.trendComment}</Text>
+                  </View>
+                ) : null}
                 <Text style={styles.promptText}>{look.prompt}</Text>
               </View>
             ))}
@@ -1086,6 +1157,21 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#e3d8c8",
     gap: 12,
+  },
+  collapsibleHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  collapsibleCopy: {
+    flex: 1,
+    gap: 6,
+  },
+  collapseIndicator: {
+    color: "#cc5f35",
+    fontSize: 13,
+    fontWeight: "800",
   },
   sectionTitle: {
     color: "#22313f",
@@ -1265,6 +1351,24 @@ const styles = StyleSheet.create({
     color: "#5f6b76",
     fontSize: 14,
     lineHeight: 20,
+  },
+  trendBox: {
+    backgroundColor: "#f6efe7",
+    borderRadius: 16,
+    padding: 12,
+    gap: 6,
+  },
+  trendLabel: {
+    color: "#7b4a35",
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
+  trendText: {
+    color: "#30414e",
+    fontSize: 13,
+    lineHeight: 19,
   },
   promptText: {
     color: "#30414e",

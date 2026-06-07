@@ -22,6 +22,21 @@ function buildPrompt(input: LookGenerationRequest, pieces: RemoteGarmentPiece[])
   ].join(" ");
 }
 
+function describeTrend(pieces: RemoteGarmentPiece[]) {
+  const labels = pieces.map((piece) => piece.label).join(", ");
+  const categories = pieces.map((piece) => piece.category);
+
+  if (categories.includes("dress")) {
+    return `Tendência: peças únicas seguem fortes pela praticidade. ${labels} funciona bem com styling leve, acessórios pontuais e contraste de textura.`;
+  }
+
+  if (categories.includes("top") && categories.includes("bottom")) {
+    return `Tendência: coordenações entre parte de cima e parte de baixo valorizam proporção e versatilidade. ${labels} conversa com a busca por looks funcionais e bem acabados.`;
+  }
+
+  return `Tendência: o look conversa com a valorização de peças-chave e styling pessoal. ${labels} pode ganhar força com sobreposição, textura ou um ponto de cor.`;
+}
+
 export async function generateMockLooks(input: LookGenerationRequest): Promise<LookResult[]> {
   const tops = filterCategory(input.garments, "top");
   const bottoms = filterCategory(input.garments, "bottom");
@@ -66,7 +81,8 @@ export async function generateMockLooks(input: LookGenerationRequest): Promise<L
   return looks.slice(0, input.maxLooks).map((pieces, index) => ({
     id: `look-${index + 1}`,
     title: `Look ${index + 1}`,
-    summary: `Sugestao para ${input.styleBrief || "uso geral"} com ${pieces.map((piece) => piece.label).join(", ")}.`,
+    summary: `Sugestão para ${input.styleBrief || "uso geral"} com ${pieces.map((piece) => piece.label).join(", ")}.`,
+    trendComment: describeTrend(pieces),
     pieces,
     prompt: buildPrompt(input, pieces),
     previewUri,

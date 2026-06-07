@@ -30,6 +30,7 @@ export type LookResult = {
   id: string;
   title: string;
   summary: string;
+  trendComment?: string;
   pieces: RemoteGarmentPiece[];
   prompt: string;
   previewUri?: string;
@@ -38,6 +39,7 @@ export type LookResult = {
 export type LookSuggestion = {
   title: string;
   summary: string;
+  trendComment: string;
   pieceIds: string[];
   prompt: string;
 };

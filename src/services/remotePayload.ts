@@ -26,27 +26,29 @@ export type RemoteLookGenerationInput = {
   renderImage?: boolean;
 };
 
-function toRemoteImage(image: ImageAsset): RemoteImageAsset {
+function toRemoteImage(image: ImageAsset, includePayload: boolean): RemoteImageAsset {
   return {
     fileName: image.fileName,
     mimeType: image.mimeType,
     width: image.width,
     height: image.height,
-    base64: image.base64,
-    sourceUrl: /^https?:\/\//i.test(image.uri) ? image.uri : undefined,
+    base64: includePayload ? image.base64 : undefined,
+    sourceUrl: includePayload && /^https?:\/\//i.test(image.uri) ? image.uri : undefined,
   };
 }
 
 export function toRemotePayload(input: LookGenerationInput): RemoteLookGenerationInput {
+  const includeGarmentImagePayloads = input.renderImage !== false;
+
   return {
     sessionId: input.sessionId,
     userId: input.userId,
-    modelImage: toRemoteImage(input.modelImage),
+    modelImage: toRemoteImage(input.modelImage, true),
     garments: input.garments.map((garment) => ({
       id: garment.id,
       label: garment.label,
       category: garment.category,
-      image: toRemoteImage(garment.image),
+      image: toRemoteImage(garment.image, includeGarmentImagePayloads),
     })),
     styleBrief: input.styleBrief,
     maxLooks: input.maxLooks,

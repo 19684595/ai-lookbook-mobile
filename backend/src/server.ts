@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { favoriteToggleSchema, lookGenerationRequestSchema, userProfileSchema } from "./schemas.js";
 import { FavoriteRepository } from "./services/favoriteRepository.js";
 import { HistoryRepository } from "./services/historyRepository.js";
-import { LookService } from "./services/lookService.js";
+import { LookService, ServiceConfig } from "./services/lookService.js";
 import { UserRepository } from "./services/userRepository.js";
 
 type ServerConfig = {
@@ -31,6 +31,11 @@ type ServerConfig = {
   supabasePathPrefix?: string;
 };
 
+function extractHeaderValue(request: express.Request, name: string) {
+  const value = request.header(name)?.trim();
+  return value || undefined;
+}
+
 export function createApp(config: ServerConfig = {}) {
   const app = express();
   const provider =
@@ -48,7 +53,7 @@ export function createApp(config: ServerConfig = {}) {
     path.resolve(dataDir, "favorites.json"),
   );
 
-  const lookService = new LookService({
+  const baseLookServiceConfig: ServiceConfig = {
     provider,
     openAIApiKey: config.openAIApiKey || process.env.OPENAI_API_KEY,
     openAITextModel: config.openAITextModel || process.env.OPENAI_TEXT_MODEL,
@@ -67,16 +72,50 @@ export function createApp(config: ServerConfig = {}) {
     supabaseServiceRoleKey: config.supabaseServiceRoleKey || process.env.SUPABASE_SERVICE_ROLE_KEY,
     supabaseBucket: config.supabaseBucket || process.env.SUPABASE_STORAGE_BUCKET,
     supabasePathPrefix: config.supabasePathPrefix || process.env.SUPABASE_STORAGE_PATH_PREFIX,
-  });
+  };
+  const lookService = new LookService(baseLookServiceConfig);
+
+  function getRequestLookService(request: express.Request) {
+    const requestedProvider = extractHeaderValue(request, "x-lookbook-provider")?.toLowerCase();
+    const requestOpenAIApiKey = extractHeaderValue(request, "x-openai-api-key");
+
+    if (requestedProvider === "openai" && requestOpenAIApiKey) {
+      return {
+        provider: "openai",
+        service: new LookService({
+          ...baseLookServiceConfig,
+          provider: "openai",
+          openAIApiKey: requestOpenAIApiKey,
+        }),
+      };
+    }
+
+    return {
+      provider,
+      service: lookService,
+    };
+  }
 
   app.use(cors());
   app.use(express.json({ limit: "60mb" }));
 
-  app.get("/health", (_request, response) => {
+  app.get("/", (_request, response) => {
     response.json({
       status: "ok",
-      provider,
-      openAIConfigured: Boolean(config.openAIApiKey || process.env.OPENAI_API_KEY),
+      service: "AI LookBook backend",
+      health: "/health",
+      generateLook: "/generate-look",
+    });
+  });
+
+  app.get("/health", (_request, response) => {
+    const requestProvider = getRequestLookService(_request).provider;
+    const requestOpenAIApiKey = extractHeaderValue(_request, "x-openai-api-key");
+
+    response.json({
+      status: "ok",
+      provider: requestProvider,
+      openAIConfigured: Boolean(requestOpenAIApiKey || config.openAIApiKey || process.env.OPENAI_API_KEY),
       piapiConfigured: Boolean(config.piapiApiKey || process.env.PIAPI_API_KEY),
       cloudinaryConfigured: Boolean(
         (config.cloudinaryCloudName || process.env.CLOUDINARY_CLOUD_NAME) &&
@@ -108,13 +147,14 @@ export function createApp(config: ServerConfig = {}) {
   app.post("/generate-look", async (request, response) => {
     try {
       const payload = lookGenerationRequestSchema.parse(request.body);
-      const looks = await lookService.generateLooks(payload);
+      const requestLookService = getRequestLookService(request);
+      const looks = await requestLookService.service.generateLooks(payload);
       const sessionId = payload.sessionId || request.header("x-session-id") || "anonymous";
       const userId = payload.userId || request.header("x-user-id") || undefined;
       const historyEntry = await historyRepository.saveGeneration({
         sessionId,
         userId,
-        provider,
+        provider: requestLookService.provider,
         request: payload,
         looks,
       });
@@ -182,7 +222,7 @@ export function createApp(config: ServerConfig = {}) {
     try {
       const entry = await historyRepository.getById(request.params.id);
       if (!entry) {
-        response.status(404).json({ error: "Historico nao encontrado." });
+        response.status(404).json({ error: "Histórico não encontrado." });
         return;
       }
 

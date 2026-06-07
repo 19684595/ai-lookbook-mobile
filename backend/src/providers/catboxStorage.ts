@@ -11,7 +11,7 @@ function randomName(prefix: string) {
 
 async function normalizeImageAsset(image: RemoteImageAsset) {
   if (!image.base64) {
-    throw new Error("A imagem precisa incluir base64 para upload temporario.");
+    throw new Error("A imagem precisa incluir base64 para upload temporário.");
   }
 
   const input = Buffer.from(image.base64, "base64");
@@ -42,11 +42,11 @@ export class CatboxTemporaryStorage {
 
     const text = (await response.text()).trim();
     if (!response.ok) {
-      throw new Error(`Falha no upload temporario para o Catbox: ${response.status} ${text}`);
+      throw new Error(`Falha no upload temporário para o Catbox: ${response.status} ${text}`);
     }
 
     if (!/^https?:\/\//i.test(text)) {
-      throw new Error(`Catbox nao retornou uma URL valida: ${text}`);
+      throw new Error(`Catbox não retornou uma URL válida: ${text}`);
     }
 
     return {

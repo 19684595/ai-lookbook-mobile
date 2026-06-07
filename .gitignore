@@ -12,6 +12,8 @@ backend/dist/
 backend/run/
 backend/data/
 backend/.env
+deploy/hetzner/.env
+deploy/koyeb/.env
 
 build-profiles.json
 

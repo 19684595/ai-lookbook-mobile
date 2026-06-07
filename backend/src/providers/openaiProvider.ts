@@ -15,17 +15,17 @@ function buildPrompt(input: LookGenerationRequest) {
     "You are a fashion stylist and virtual try-on planner.",
     `Create up to ${input.maxLooks} distinct outfit combinations for the supplied model using only these items: ${garments}.`,
     `Target style: ${input.styleBrief || "balanced, realistic, wearable fashion"}.`,
-    "Return concise rationale for each look and a production-ready try-on prompt for image generation.",
+    "Return concise rationale for each look, a short fashion trend comment related to the selected pieces, and a production-ready try-on prompt for image generation.",
   ].join(" ");
 }
 
 export async function generateOpenAILooks(input: LookGenerationRequest, config: OpenAIProviderConfig): Promise<LookResult[]> {
   if (!config.apiKey) {
-    throw new Error("OPENAI_API_KEY nao configurada no backend.");
+    throw new Error("OPENAI_API_KEY não configurada no backend.");
   }
 
   const data = (await createOpenAIResponse(config.apiKey, {
-    model: config.textModel || "gpt-5.5",
+    model: config.textModel || "gpt-5.4-mini",
     input: [
       {
         role: "system",
@@ -62,13 +62,14 @@ export async function generateOpenAILooks(input: LookGenerationRequest, config: 
                 properties: {
                   title: { type: "string" },
                   summary: { type: "string" },
+                  trendComment: { type: "string" },
                   pieceIds: {
                     type: "array",
                     items: { type: "string" },
                   },
                   prompt: { type: "string" },
                 },
-                required: ["title", "summary", "pieceIds", "prompt"],
+                required: ["title", "summary", "trendComment", "pieceIds", "prompt"],
               },
             },
           },
@@ -92,6 +93,7 @@ export async function generateOpenAILooks(input: LookGenerationRequest, config: 
     id: `look-${index + 1}`,
     title: look.title,
     summary: look.summary,
+    trendComment: look.trendComment,
     pieces: input.garments.filter((piece) => look.pieceIds.includes(piece.id)),
     prompt: look.prompt,
   }));

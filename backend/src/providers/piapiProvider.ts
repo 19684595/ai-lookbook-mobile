@@ -186,7 +186,7 @@ async function waitForPiApiImage(
     if (status === "completed") {
       const previewUrl = extractPreviewUrl(task);
       if (!previewUrl) {
-        throw new Error("PiAPI concluiu a tarefa, mas nao retornou image_url.");
+        throw new Error("PiAPI concluiu a tarefa, mas não retornou image_url.");
       }
       return previewUrl;
     }
@@ -203,12 +203,12 @@ async function waitForPiApiImage(
     await new Promise((resolve) => setTimeout(resolve, config.pollIntervalMs));
   }
 
-  throw new Error("A PiAPI nao concluiu a tarefa no tempo esperado.");
+  throw new Error("A PiAPI não concluiu a tarefa no tempo esperado.");
 }
 
 export async function generatePiApiLooks(input: LookGenerationRequest, config: PiApiProviderConfig): Promise<LookResult[]> {
   if (!config.apiKey) {
-    throw new Error("PIAPI_API_KEY nao configurada no backend.");
+    throw new Error("PIAPI_API_KEY não configurada no backend.");
   }
   const apiKey = config.apiKey;
 
@@ -218,7 +218,7 @@ export async function generatePiApiLooks(input: LookGenerationRequest, config: P
       stripImagePayloads({
         ...look,
         previewUri: undefined,
-        summary: `${look.summary} Sugestao textual gerada sem renderizacao de imagem.`,
+        summary: `${look.summary} Sugestão textual gerada sem renderização de imagem.`,
       }),
     );
   }
@@ -230,7 +230,7 @@ export async function generatePiApiLooks(input: LookGenerationRequest, config: P
     const modelReference = await resolveImageReference(storage, input.modelImage, "model");
     if (!modelReference.url) {
       throw new Error(
-        "A integracao com PiAPI precisa de modelImage.sourceUrl publica ou de Cloudinary/Supabase configurados para upload temporario.",
+        "A integração com PiAPI precisa de modelImage.sourceUrl pública ou de Cloudinary/Supabase configurados para upload temporário.",
       );
     }
     if (modelReference.uploadedId) {
@@ -280,7 +280,7 @@ export async function generatePiApiLooks(input: LookGenerationRequest, config: P
         const tryOnInput = selectTryOnInputs(modelReference.url!, resolvedLookPieces);
         if (!tryOnInput) {
           throw new Error(
-            "A renderizacao com PiAPI precisa de ao menos uma peca cadastrada como Blusa, Calca ou Vestido.",
+            "A renderização com PiAPI precisa de ao menos uma peça cadastrada como Blusa, Calça ou Vestido.",
           );
         }
 
@@ -298,7 +298,7 @@ export async function generatePiApiLooks(input: LookGenerationRequest, config: P
 
         const taskId = createdTask.data?.task_id;
         if (!taskId) {
-          throw new Error("A PiAPI nao retornou task_id.");
+          throw new Error("A PiAPI não retornou task_id.");
         }
 
         const previewUri = await waitForPiApiImage(apiKey, taskId, pollConfig);

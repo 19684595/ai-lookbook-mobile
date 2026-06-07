@@ -37,6 +37,7 @@ export type SavedLook = {
   modelId?: string;
   modelName: string;
   summary: string;
+  trendComment?: string;
   prompt: string;
   previewUri?: string;
   renderedImage: boolean;
@@ -63,6 +64,7 @@ export type CreditState = {
 
 export type AppSettings = {
   stylingApiUrl: string;
+  openAIApiKey?: string;
   embeddedApiUrl?: string;
   buildVariant?: string;
 };
@@ -89,6 +91,7 @@ export type LookResult = {
   id: string;
   title: string;
   summary: string;
+  trendComment?: string;
   pieces: GarmentPiece[];
   prompt: string;
   previewUri?: string;

@@ -3,13 +3,10 @@ services:
     name: ai-lookbook-backend
     runtime: docker
     rootDir: backend
+    plan: free
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
       - key: DATA_DIR
         value: /app/data
-    disk:
-      name: lookbook-data
-      mountPath: /app/data
-      sizeGB: 1

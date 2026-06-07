@@ -3,7 +3,7 @@ import { generateOpenAILooks } from "../providers/openaiProvider.js";
 import { generatePiApiLooks } from "../providers/piapiProvider.js";
 import { LookGenerationRequest, LookResult } from "../types.js";
 
-type ServiceConfig = {
+export type ServiceConfig = {
   provider: string;
   openAIApiKey?: string;
   openAITextModel?: string;
@@ -28,12 +28,12 @@ export class LookService {
   constructor(private readonly config: ServiceConfig) {}
 
   async generateLooks(input: LookGenerationRequest): Promise<LookResult[]> {
-    if (!input.modelImage?.base64) {
-      throw new Error("A imagem da modelo precisa incluir base64.");
+    if (input.renderImage !== false && !input.modelImage?.base64) {
+      throw new Error("A imagem da modelo precisa incluir base64 para renderizar imagem.");
     }
 
     if (!input.garments?.length) {
-      throw new Error("Envie pelo menos uma peca.");
+      throw new Error("Envie pelo menos uma peça.");
     }
 
     if (this.config.provider === "openai") {
@@ -41,7 +41,7 @@ export class LookService {
         apiKey: this.config.openAIApiKey,
         textModel: this.config.openAITextModel,
         imageModel: this.config.openAIImageModel,
-        renderImages: this.config.openAIRenderImages,
+        renderImages: input.renderImage !== false && this.config.openAIRenderImages !== false,
       });
     }
 

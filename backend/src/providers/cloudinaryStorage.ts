@@ -20,7 +20,7 @@ function toDataUri(buffer: Buffer, mimeType: string) {
 
 async function normalizeImageAsset(image: RemoteImageAsset) {
   if (!image.base64) {
-    throw new Error("A imagem precisa incluir base64 para upload temporario.");
+    throw new Error("A imagem precisa incluir base64 para upload temporário.");
   }
 
   const input = Buffer.from(image.base64, "base64");
@@ -83,7 +83,7 @@ export class CloudinaryTemporaryStorage {
             resource_type: "image",
           });
         } catch (error) {
-          console.warn(`Falha ao remover asset temporario do Cloudinary: ${publicId}`, error);
+          console.warn(`Falha ao remover asset temporário do Cloudinary: ${publicId}`, error);
         }
       }),
     );

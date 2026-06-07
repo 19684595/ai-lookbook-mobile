@@ -25,6 +25,13 @@ export function LookCard({ look }: Props) {
         {look.previewUri ? <Image source={{ uri: look.previewUri }} style={styles.preview} /> : null}
       </View>
 
+      {look.trendComment ? (
+        <View style={styles.trendBox}>
+          <Text style={styles.trendLabel}>Tendências de moda</Text>
+          <Text style={styles.trendText}>{look.trendComment}</Text>
+        </View>
+      ) : null}
+
       <View style={styles.pieceList}>
         {look.pieces.map((piece) => (
           <View key={piece.id} style={styles.pieceChip}>
@@ -90,6 +97,24 @@ const styles = StyleSheet.create({
     color: "#314352",
     fontSize: 13,
     fontWeight: "700",
+  },
+  trendBox: {
+    backgroundColor: "#f6efe7",
+    borderRadius: 18,
+    padding: 14,
+    gap: 6,
+  },
+  trendLabel: {
+    color: "#7b4a35",
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+  },
+  trendText: {
+    color: "#30414e",
+    fontSize: 13,
+    lineHeight: 19,
   },
   promptBox: {
     backgroundColor: "#f6efe7",

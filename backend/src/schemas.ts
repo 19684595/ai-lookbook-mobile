@@ -19,13 +19,19 @@ const remoteGarmentPieceSchema = z.object({
 export const lookGenerationRequestSchema = z.object({
   sessionId: z.string().min(1).max(120).optional(),
   userId: z.string().min(1).max(120).optional(),
-  modelImage: remoteImageAssetSchema.extend({
-    base64: z.string().min(1),
-  }),
+  modelImage: remoteImageAssetSchema,
   garments: z.array(remoteGarmentPieceSchema).min(1),
   styleBrief: z.string().default(""),
   maxLooks: z.number().int().min(1).max(8),
   renderImage: z.boolean().default(true),
+}).superRefine((payload, context) => {
+  if (payload.renderImage !== false && !payload.modelImage.base64) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "A imagem da modelo precisa incluir base64 para renderizar imagem.",
+      path: ["modelImage", "base64"],
+    });
+  }
 });
 
 export const userProfileSchema = z.object({
