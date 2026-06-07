@@ -179,7 +179,7 @@ export async function generateOpenAILooks(input: LookGenerationRequest, config: 
       ...look,
       previewUri: await renderLookPreview(input, look.pieces, look.prompt, {
         apiKey: config.apiKey!,
-        model: config.imageModel || "gpt-image-2",
+        model: config.imageModel || "gpt-5",
       }),
     })),
   );

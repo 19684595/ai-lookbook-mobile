@@ -6,8 +6,22 @@ type RenderConfig = {
   model: string;
 };
 
+const DEFAULT_RESPONSES_IMAGE_MODEL = "gpt-5";
+
 function asDataUrl(base64: string, mimeType?: string) {
   return `data:${mimeType || "image/jpeg"};base64,${base64}`;
+}
+
+function resolveResponsesImageModel(model: string) {
+  const requestedModel = model.trim();
+
+  // The Responses API image_generation tool is called by a mainline model.
+  // GPT Image model names belong to the Images API, not the Responses model field.
+  if (!requestedModel || /^gpt-image-/i.test(requestedModel)) {
+    return DEFAULT_RESPONSES_IMAGE_MODEL;
+  }
+
+  return requestedModel;
 }
 
 function buildRenderInstruction(styleBrief: string, pieces: RemoteGarmentPiece[], prompt: string) {
@@ -47,7 +61,7 @@ export async function renderLookPreview(
   ];
 
   const data = (await createOpenAIResponse(config.apiKey, {
-    model: config.model,
+    model: resolveResponsesImageModel(config.model),
     input: [
       {
         role: "user",
@@ -57,11 +71,6 @@ export async function renderLookPreview(
     tools: [
       {
         type: "image_generation",
-        size: "1024x1536",
-        quality: "medium",
-        format: "png",
-        background: "opaque",
-        action: "auto",
       },
     ],
     tool_choice: { type: "image_generation" },

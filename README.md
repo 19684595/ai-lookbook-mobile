@@ -297,7 +297,7 @@ Se quiser usar OpenAI inicialmente para a etapa de sugestão dos looks, configur
 LOOKBOOK_PROVIDER=openai
 OPENAI_API_KEY=sua_chave
 OPENAI_TEXT_MODEL=gpt-5.5
-OPENAI_IMAGE_MODEL=gpt-image-2
+OPENAI_IMAGE_MODEL=gpt-5
 OPENAI_RENDER_IMAGES=true
 ```
 
@@ -306,7 +306,7 @@ Nesse modo, o backend usa a OpenAI para sugerir combinações com saída estrutu
 Modelos recomendados nas docs oficiais em 24 de maio de 2026:
 
 - texto estruturado e raciocínio do styling: `gpt-5.5`
-- imagem para renderização/edição: `gpt-image-2`
+- modelo principal para acionar a ferramenta de imagem no Responses API: `gpt-5`
 
 Depois de configurar a chave, você também pode validar o fluxo com:
 
