@@ -31,7 +31,9 @@ function buildPrompt(input: LookGenerationRequest) {
     "You are a fashion stylist and virtual try-on planner.",
     `Create up to ${input.maxLooks} distinct outfit combinations for the supplied model using only these items: ${garments}.`,
     `Target style: ${input.styleBrief || "balanced, realistic, wearable fashion"}.`,
-    "Return concise rationale for each look, a short fashion trend comment related to the selected pieces, and a production-ready try-on prompt for image generation.",
+    "Return title, summary, and trendComment in Brazilian Portuguese.",
+    "The trendComment must start with \"Tendência:\" and relate current fashion trends to the selected pieces in 1 or 2 natural Brazilian Portuguese sentences.",
+    "Only the prompt field may be in English because it can be reused for image generation.",
   ].join(" ");
 }
 
@@ -101,7 +103,7 @@ export async function generateOpenAILooks(input: LookGenerationRequest, config: 
         content: [
           {
             type: "input_text",
-            text: "You generate structured fashion look suggestions from clothing inventories.",
+            text: "You generate structured fashion look suggestions from clothing inventories. User-facing copy must be in Brazilian Portuguese.",
           },
         ],
       },
@@ -129,9 +131,18 @@ export async function generateOpenAILooks(input: LookGenerationRequest, config: 
                 type: "object",
                 additionalProperties: false,
                 properties: {
-                  title: { type: "string" },
-                  summary: { type: "string" },
-                  trendComment: { type: "string" },
+                  title: {
+                    type: "string",
+                    description: "Short look title in Brazilian Portuguese.",
+                  },
+                  summary: {
+                    type: "string",
+                    description: "Concise styling rationale in Brazilian Portuguese.",
+                  },
+                  trendComment: {
+                    type: "string",
+                    description: "Fashion trend comment in Brazilian Portuguese. Must start with 'Tendência:'.",
+                  },
                   pieceIds: {
                     type: "array",
                     items: { type: "string" },
