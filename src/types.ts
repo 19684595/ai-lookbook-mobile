@@ -62,8 +62,11 @@ export type CreditState = {
   history: CreditTransaction[];
 };
 
+export type AiProvider = "piapi" | "openai";
+
 export type AppSettings = {
   stylingApiUrl: string;
+  aiProvider?: AiProvider;
   openAIApiKey?: string;
   embeddedApiUrl?: string;
   buildVariant?: string;

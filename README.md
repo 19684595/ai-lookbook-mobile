@@ -265,6 +265,7 @@ Se a pessoa preencher nome e e-mail no bloco de perfil, o app registra um `userI
 ## Conectar o celular ao backend
 
 O app agora também permite salvar a URL do backend diretamente na tela inicial, sem rebuild.
+Na mesma área, o usuário escolhe o provedor de IA: `PiAPI`, usando as chaves seguras configuradas no backend, ou `OpenAI`, usando uma chave OpenAI informada no próprio aparelho.
 
 Para testar no celular:
 

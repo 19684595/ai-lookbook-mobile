@@ -21,6 +21,7 @@ import * as ImagePicker from "expo-image-picker";
 import { checkStylingBackend, createStylingService } from "./src/services/stylingService";
 import { localCatalogService } from "./src/services/localCatalogService";
 import {
+  AiProvider,
   AppCatalog,
   GarmentCategory,
   GarmentPiece,
@@ -51,6 +52,18 @@ const promptSuggestions = [
 ];
 
 const environmentSuggestions: SuggestedEnvironment[] = ["Passarela", "Balada", "Rua", "Shopping"];
+const aiProviderOptions: Array<{ id: AiProvider; label: string; description: string }> = [
+  {
+    id: "piapi",
+    label: "PiAPI",
+    description: "Usa a PiAPI configurada no backend.",
+  },
+  {
+    id: "openai",
+    label: "OpenAI",
+    description: "Usa a chave OpenAI informada neste aparelho.",
+  },
+];
 const categoryLabels: Record<GarmentCategory, string> = {
   top: "Blusa",
   bottom: "Calça",
@@ -227,6 +240,7 @@ export default function App() {
   const [catalog, setCatalog] = useState<AppCatalog | null>(null);
   const [isBusy, setIsBusy] = useState(false);
   const [apiUrlDraft, setApiUrlDraft] = useState("");
+  const [aiProviderDraft, setAiProviderDraft] = useState<AiProvider>("piapi");
   const [openAIKeyDraft, setOpenAIKeyDraft] = useState("");
   const [isAiSettingsExpanded, setIsAiSettingsExpanded] = useState(false);
 
@@ -250,8 +264,14 @@ export default function App() {
 
   useEffect(() => {
     setApiUrlDraft(catalog?.settings.stylingApiUrl || catalog?.settings.embeddedApiUrl || "");
+    setAiProviderDraft(catalog?.settings.aiProvider === "openai" ? "openai" : "piapi");
     setOpenAIKeyDraft(catalog?.settings.openAIApiKey || "");
-  }, [catalog?.settings.embeddedApiUrl, catalog?.settings.openAIApiKey, catalog?.settings.stylingApiUrl]);
+  }, [
+    catalog?.settings.aiProvider,
+    catalog?.settings.embeddedApiUrl,
+    catalog?.settings.openAIApiKey,
+    catalog?.settings.stylingApiUrl,
+  ]);
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
@@ -279,13 +299,14 @@ export default function App() {
   const embeddedApiUrl = catalog?.settings.embeddedApiUrl ?? "";
   const buildVariant = catalog?.settings.buildVariant ?? "";
   const effectiveApiUrl = (catalog?.settings.stylingApiUrl || catalog?.settings.embeddedApiUrl || "").trim();
+  const selectedAiProvider: AiProvider = catalog?.settings.aiProvider === "openai" ? "openai" : "piapi";
   const openAIApiKey = catalog?.settings.openAIApiKey?.trim() ?? "";
   const stylingService = useMemo(
-    () => createStylingService({ baseUrl: effectiveApiUrl, openAIApiKey }),
-    [effectiveApiUrl, openAIApiKey],
+    () => createStylingService({ baseUrl: effectiveApiUrl, aiProvider: selectedAiProvider, openAIApiKey }),
+    [effectiveApiUrl, openAIApiKey, selectedAiProvider],
   );
   const isRemoteAiEnabled = Boolean(effectiveApiUrl);
-  const isOpenAIKeyConfigured = Boolean(openAIApiKey);
+  const selectedAiProviderLabel = selectedAiProvider === "openai" ? "OpenAI" : "PiAPI";
 
   useEffect(() => {
     if (models.length === 0) {
@@ -455,17 +476,24 @@ export default function App() {
   }
 
   async function saveAiSettings() {
+    const nextProvider = aiProviderDraft;
+    if (nextProvider === "openai" && !openAIKeyDraft.trim()) {
+      Alert.alert("Chave OpenAI necessária", "Informe uma chave OpenAI ou selecione PiAPI como provedor.");
+      return;
+    }
+
     const nextSettings = await localCatalogService.updateSettings({
       stylingApiUrl: apiUrlDraft.trim() || catalog?.settings.embeddedApiUrl || "",
+      aiProvider: nextProvider,
       openAIApiKey: openAIKeyDraft.trim(),
     });
     setCatalog((current) => (current ? { ...current, settings: nextSettings } : current));
     Alert.alert(
       "Conexão atualizada",
-      nextSettings.openAIApiKey
-        ? "O app usará sua chave OpenAI pelo backend quando gerar looks."
+      nextSettings.aiProvider === "openai"
+        ? "O app usará OpenAI pelo backend quando gerar looks."
         : nextSettings.stylingApiUrl
-          ? "O app agora vai tentar usar o backend configurado para gerar looks reais."
+          ? "O app usará PiAPI pelo backend quando gerar looks reais."
           : "Sem URL configurada, o app voltou para o modo de demonstração local.",
     );
   }
@@ -477,9 +505,15 @@ export default function App() {
       return;
     }
 
+    if (aiProviderDraft === "openai" && !openAIKeyDraft.trim()) {
+      Alert.alert("Chave OpenAI necessária", "Informe uma chave OpenAI ou selecione PiAPI para testar a conexão.");
+      return;
+    }
+
     try {
       setIsBusy(true);
       const health = await checkStylingBackend(url, {
+        aiProvider: aiProviderDraft,
         openAIApiKey: openAIKeyDraft,
       });
       Alert.alert(
@@ -675,11 +709,9 @@ export default function App() {
                 <View style={styles.collapsibleCopy}>
                   <Text style={styles.sectionTitle}>Conexão com IA</Text>
                   <Text style={styles.rowCaption}>
-                    {isOpenAIKeyConfigured
-                      ? "OpenAI configurada no app. Sugestões em texto continuam sendo o padrão econômico."
-                      : isRemoteAiEnabled
-                        ? "Backend remoto configurado. Toque para ver ou ajustar as credenciais."
-                        : "Modo demonstração local. Toque para configurar IA."}
+                    {isRemoteAiEnabled
+                      ? `Backend remoto configurado. Provedor atual: ${selectedAiProviderLabel}.`
+                      : "Modo demonstração local. Toque para configurar IA."}
                   </Text>
                 </View>
                 <Text style={styles.collapseIndicator}>{isAiSettingsExpanded ? "Recolher" : "Configurar"}</Text>
@@ -698,18 +730,39 @@ export default function App() {
                     autoCorrect={false}
                     style={styles.input}
                   />
-                  <TextInput
-                    value={openAIKeyDraft}
-                    onChangeText={setOpenAIKeyDraft}
-                    placeholder="Chave OpenAI opcional"
-                    placeholderTextColor="#8f8579"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    secureTextEntry
-                    style={styles.input}
-                  />
+                  <Text style={styles.label}>Provedor de IA</Text>
+                  <View style={styles.providerGrid}>
+                    {aiProviderOptions.map((option) => (
+                      <Pressable
+                        key={option.id}
+                        style={[styles.providerOption, aiProviderDraft === option.id && styles.providerOptionActive]}
+                        onPress={() => setAiProviderDraft(option.id)}
+                      >
+                        <Text style={[styles.providerTitle, aiProviderDraft === option.id && styles.providerTitleActive]}>
+                          {option.label}
+                        </Text>
+                        <Text style={[styles.providerDescription, aiProviderDraft === option.id && styles.providerDescriptionActive]}>
+                          {option.description}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                  {aiProviderDraft === "openai" ? (
+                    <TextInput
+                      value={openAIKeyDraft}
+                      onChangeText={setOpenAIKeyDraft}
+                      placeholder="Chave OpenAI"
+                      placeholderTextColor="#8f8579"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      secureTextEntry
+                      style={styles.input}
+                    />
+                  ) : null}
                   <Text style={styles.rowCaption}>
-                    Para economizar, o app gera texto por padrão. A imagem só é renderizada quando você ativar a opção na tela de Looks Sugeridos.
+                    {aiProviderDraft === "openai"
+                      ? "OpenAI usa a chave salva neste aparelho e pode gerar texto ou imagem conforme a opção escolhida."
+                      : "PiAPI usa as chaves protegidas no backend e é o provedor padrão para vestir a modelo com as peças."}
                   </Text>
                   <View style={styles.actionRow}>
                     <Pressable style={styles.primaryButton} onPress={saveAiSettings}>
@@ -1258,6 +1311,37 @@ const styles = StyleSheet.create({
   },
   chipTextActive: {
     color: "#fff7ee",
+  },
+  providerGrid: {
+    gap: 10,
+  },
+  providerOption: {
+    backgroundColor: "#f4ede4",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#dbcbb7",
+    padding: 14,
+    gap: 4,
+  },
+  providerOptionActive: {
+    backgroundColor: "#13202b",
+    borderColor: "#13202b",
+  },
+  providerTitle: {
+    color: "#20303d",
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  providerTitleActive: {
+    color: "#fff8ed",
+  },
+  providerDescription: {
+    color: "#6a7885",
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  providerDescriptionActive: {
+    color: "#e8d8c4",
   },
   linkButton: {
     alignSelf: "flex-start",

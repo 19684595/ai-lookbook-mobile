@@ -1,5 +1,5 @@
 import { generateMockLooks } from "./mockStylingEngine";
-import { LookGenerationInput, LookResult } from "../types";
+import { AiProvider, LookGenerationInput, LookResult } from "../types";
 import { toRemotePayload } from "./remotePayload";
 
 export interface StylingProvider {
@@ -7,15 +7,18 @@ export interface StylingProvider {
 }
 
 type RemoteAuthOptions = {
+  aiProvider?: AiProvider;
   openAIApiKey?: string;
 };
 
 function buildRemoteHeaders(options: RemoteAuthOptions = {}) {
   const headers: Record<string, string> = {};
+  const aiProvider = options.aiProvider || "piapi";
   const openAIApiKey = options.openAIApiKey?.trim();
 
-  if (openAIApiKey) {
-    headers["x-lookbook-provider"] = "openai";
+  headers["x-lookbook-provider"] = aiProvider;
+
+  if (aiProvider === "openai" && openAIApiKey) {
     headers["x-openai-api-key"] = openAIApiKey;
   }
 
@@ -81,6 +84,7 @@ class RemoteStylingProvider implements StylingProvider {
 
 type StylingServiceOptions = {
   baseUrl?: string;
+  aiProvider?: AiProvider;
   openAIApiKey?: string;
 };
 
@@ -89,6 +93,7 @@ export function createStylingService(options: StylingServiceOptions = {}): Styli
 
   if (baseUrl) {
     return new RemoteStylingProvider(baseUrl, {
+      aiProvider: options.aiProvider,
       openAIApiKey: options.openAIApiKey,
     });
   }

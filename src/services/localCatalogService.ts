@@ -34,6 +34,7 @@ const defaultCatalog: AppCatalog = {
   credits: defaultCredits,
   settings: {
     stylingApiUrl: embeddedStylingApiUrl,
+    aiProvider: "piapi",
     openAIApiKey: "",
     embeddedApiUrl: embeddedStylingApiUrl,
     buildVariant: embeddedExtra.buildVariant ?? "",
@@ -93,6 +94,7 @@ async function readCatalog(): Promise<AppCatalog> {
     settings: {
       stylingApiUrl:
         parsed.settings?.stylingApiUrl?.trim() || parsed.settings?.embeddedApiUrl?.trim() || defaultCatalog.settings.stylingApiUrl,
+      aiProvider: parsed.settings?.aiProvider === "openai" ? "openai" : "piapi",
       openAIApiKey: parsed.settings?.openAIApiKey?.trim() || defaultCatalog.settings.openAIApiKey,
       embeddedApiUrl: parsed.settings?.embeddedApiUrl?.trim() || defaultCatalog.settings.embeddedApiUrl,
       buildVariant: parsed.settings?.buildVariant ?? defaultCatalog.settings.buildVariant,

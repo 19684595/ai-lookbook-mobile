@@ -79,13 +79,23 @@ export function createApp(config: ServerConfig = {}) {
     const requestedProvider = extractHeaderValue(request, "x-lookbook-provider")?.toLowerCase();
     const requestOpenAIApiKey = extractHeaderValue(request, "x-openai-api-key");
 
-    if (requestedProvider === "openai" && requestOpenAIApiKey) {
+    if (requestedProvider === "piapi") {
+      return {
+        provider: "piapi",
+        service: new LookService({
+          ...baseLookServiceConfig,
+          provider: "piapi",
+        }),
+      };
+    }
+
+    if (requestedProvider === "openai") {
       return {
         provider: "openai",
         service: new LookService({
           ...baseLookServiceConfig,
           provider: "openai",
-          openAIApiKey: requestOpenAIApiKey,
+          openAIApiKey: requestOpenAIApiKey || baseLookServiceConfig.openAIApiKey,
         }),
       };
     }
