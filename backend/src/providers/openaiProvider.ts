@@ -33,6 +33,7 @@ function buildPrompt(input: LookGenerationRequest) {
     `Target style: ${input.styleBrief || "balanced, realistic, wearable fashion"}.`,
     "Return title, summary, and trendComment in Brazilian Portuguese.",
     "The trendComment must start with \"Tendência:\" and relate current fashion trends to the selected pieces in 1 or 2 natural Brazilian Portuguese sentences.",
+    "If the target style mentions an environment, scene, setting, or background, include it in the prompt field as the required image background.",
     "Only the prompt field may be in English because it can be reused for image generation.",
   ].join(" ");
 }

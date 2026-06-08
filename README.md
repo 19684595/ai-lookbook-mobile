@@ -266,6 +266,7 @@ Se a pessoa preencher nome e e-mail no bloco de perfil, o app registra um `userI
 
 O app agora também permite salvar a URL do backend diretamente na tela inicial, sem rebuild.
 Na mesma área, o usuário escolhe o provedor de IA: `PiAPI`, usando as chaves seguras configuradas no backend, ou `OpenAI`, usando uma chave OpenAI informada no próprio aparelho.
+Na renderização de Looks Sugeridos, o usuário também escolhe ou digita o fundo da foto. Esse ambiente é enviado como instrução obrigatória para a renderização; para controle mais fiel de cenário, use OpenAI, pois a PiAPI/Kling Virtual Try-On pode preservar o fundo original da modelo.
 
 Para testar no celular:
 

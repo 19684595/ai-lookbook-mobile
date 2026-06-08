@@ -32,6 +32,8 @@ function buildRenderInstruction(styleBrief: string, pieces: RemoteGarmentPiece[]
     `Dress the same person in these exact items: ${garmentList}.`,
     `Style brief: ${styleBrief || "realistic, wearable fashion styling"}.`,
     prompt,
+    "Treat any requested environment, setting, or background in the style brief as the required photo background.",
+    "Replace or redesign the original background when needed, but keep the person, pose, face, body proportions, and clothing realistic.",
     "Preserve facial identity, body proportions, and realistic textile detail.",
     "Create a clean smartphone-photo style full-body fashion image.",
   ].join(" ");

@@ -51,7 +51,24 @@ const promptSuggestions = [
   "Look casual chic para shopping",
 ];
 
-const environmentSuggestions: SuggestedEnvironment[] = ["Passarela", "Balada", "Rua", "Shopping"];
+const environmentSuggestions: SuggestedEnvironment[] = [
+  "Passarela",
+  "Balada",
+  "Rua",
+  "Shopping",
+  "Praia",
+  "Escritório",
+  "Café",
+  "Restaurante",
+  "Parque",
+  "Academia",
+  "Estúdio fotográfico",
+  "Fundo neutro",
+  "Cidade à noite",
+  "Hotel luxuoso",
+  "Evento ao ar livre",
+  "Festa de casamento",
+];
 const aiProviderOptions: Array<{ id: AiProvider; label: string; description: string }> = [
   {
     id: "piapi",
@@ -255,7 +272,9 @@ export default function App() {
   const [useSavedPieces, setUseSavedPieces] = useState(true);
   const [renderSuggestedImage, setRenderSuggestedImage] = useState(false);
   const [selectedEnvironment, setSelectedEnvironment] = useState<SuggestedEnvironment>("Passarela");
+  const [customEnvironment, setCustomEnvironment] = useState("");
   const [suggestedPreview, setSuggestedPreview] = useState<LookResult | null>(null);
+  const [suggestedPreviewEnvironment, setSuggestedPreviewEnvironment] = useState("");
   const [suggestedLookName, setSuggestedLookName] = useState("");
 
   useEffect(() => {
@@ -612,8 +631,9 @@ export default function App() {
         : garments
       : buildVirtualPieces(selectedSuggestedModel, prompt);
     const selectedPieces = shouldRenderImage ? sourcePieces.slice(0, Math.min(sourcePieces.length, 4)) : sourcePieces;
+    const backgroundEnvironment = customEnvironment.trim() || selectedEnvironment;
     const styleBrief = shouldRenderImage
-      ? `${prompt}. Ambiente desejado: ${selectedEnvironment}. Gere uma composição visual coerente e pronta para renderização.`
+      ? `${prompt}. Use obrigatoriamente "${backgroundEnvironment}" como fundo/cenário principal da foto renderizada. Substitua ou redesenhe o fundo original se necessário, mantendo a modelo natural e o look em destaque.`
       : `${prompt}. Retorne uma sugestão textual clara, sofisticada e objetiva.`;
 
     try {
@@ -639,6 +659,7 @@ export default function App() {
           ? result.summary
           : `Sugestão criada a partir do prompt "${prompt}" com peças livres indicadas pela IA para o perfil da modelo.`,
       });
+      setSuggestedPreviewEnvironment(shouldRenderImage ? backgroundEnvironment : "");
       await consumeCredits(creditCost, shouldRenderImage ? "Look sugerido com renderização" : "Look sugerido em texto");
       setSuggestedLookName(`Look sugerido ${savedLooks.length + 1}`);
     } catch (error) {
@@ -661,7 +682,7 @@ export default function App() {
       result: suggestedPreview,
       model: selectedSuggestedModel,
       renderedImage,
-      environment: renderedImage ? selectedEnvironment : undefined,
+      environment: renderedImage ? suggestedPreviewEnvironment || customEnvironment.trim() || selectedEnvironment : undefined,
     });
     const next = await localCatalogService.saveLook(look);
     setCatalog((current) => (current ? { ...current, savedLooks: next } : current));
@@ -1006,14 +1027,31 @@ export default function App() {
 
               {effectiveRenderSuggestedImage ? (
                 <>
-                  <Text style={styles.label}>Ambiente da cena</Text>
+                  <Text style={styles.label}>Fundo da foto</Text>
                   <View style={styles.chipRow}>
                     {environmentSuggestions.map((item) => (
-                      <Pressable key={item} style={[styles.chip, selectedEnvironment === item && styles.chipActive]} onPress={() => setSelectedEnvironment(item)}>
-                        <Text style={[styles.chipText, selectedEnvironment === item && styles.chipTextActive]}>{item}</Text>
+                      <Pressable
+                        key={item}
+                        style={[styles.chip, !customEnvironment.trim() && selectedEnvironment === item && styles.chipActive]}
+                        onPress={() => {
+                          setSelectedEnvironment(item);
+                          setCustomEnvironment("");
+                        }}
+                      >
+                        <Text style={[styles.chipText, !customEnvironment.trim() && selectedEnvironment === item && styles.chipTextActive]}>{item}</Text>
                       </Pressable>
                     ))}
                   </View>
+                  <TextInput
+                    value={customEnvironment}
+                    onChangeText={setCustomEnvironment}
+                    placeholder="Ou digite o ambiente/fundo que quiser. Ex.: rooftop em Paris ao pôr do sol"
+                    placeholderTextColor="#8f8579"
+                    style={styles.input}
+                  />
+                  <Text style={styles.rowCaption}>
+                    A IA tentará usar esse ambiente como fundo principal da imagem. Para controle fiel de cenário, prefira OpenAI; a PiAPI/Kling pode preservar mais o fundo original da foto.
+                  </Text>
                 </>
               ) : null}
 

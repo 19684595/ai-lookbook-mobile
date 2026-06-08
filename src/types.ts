@@ -27,7 +27,7 @@ export type StoredGarment = GarmentPiece & {
   createdAt: string;
 };
 
-export type SuggestedEnvironment = "Passarela" | "Balada" | "Rua" | "Shopping";
+export type SuggestedEnvironment = string;
 
 export type SavedLook = {
   id: string;
